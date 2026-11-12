@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#18212d">
+<title>EV3 Пульт</title>
+<style>
+  :root {
+    --bg: #eceff3;
+    --surface: #ffffff;
+    --ink: #18212d;
+    --muted: #5d6877;
+    --line: #d5dbe3;
+    --accent: #0e7490;
+    --go: #138a4b;
+    --stop: #d92d20;
+    --font: -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; }
+  body { padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
+  button { font: inherit; color: inherit; }
+  .app { max-width: 720px; margin: 0 auto; padding-inline: 12px; padding-block: 10px 24px; display: flex; flex-direction: column; gap: 10px; }
+
+  .top { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: stretch; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 4px; }
+  .status { background: var(--ink); color: #fff; border-radius: 12px; padding: 8px 12px; display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; }
+  .status-line { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; min-width: 0; }
+  .status-line span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #8a94a3; flex: none; }
+  .dot.on { background: #34d17a; }
+  .dot.off { background: var(--stop); }
+  .pose { font-family: var(--mono); font-size: 12px; color: #b9c3cf; font-variant-numeric: tabular-nums; }
+  .stop-btn { background: var(--stop); color: #fff; border: 0; border-radius: 12px; font-weight: 800; font-size: 20px; letter-spacing: .06em; padding: 0 20px; min-height: 56px; box-shadow: 0 2px 0 #9e1c13; }
+  .stop-btn:active { transform: translateY(2px); box-shadow: none; }
+
+  .speed { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; display: grid; grid-template-columns: auto 1fr 3.2em; gap: 12px; align-items: center; }
+  .speed label { font-weight: 600; font-size: 14px; }
+  .speed output { font-family: var(--mono); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); height: 28px; }
+
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); background: #dde2e8; border-radius: 12px; padding: 4px; gap: 4px; }
+  .tabs button { border: 0; background: transparent; border-radius: 9px; padding: 10px 4px; font-weight: 600; font-size: 15px; color: var(--muted); }
+  .tabs button[aria-selected=true] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+
+  .panel { display: flex; flex-direction: column; gap: 10px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .card h3 { margin: 0; font-size: 15px; }
+  .hint { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.4; }
+
+  .map-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 6px; display: flex; justify-content: center; }
+  canvas#map { display: block; touch-action: none; border-radius: 8px; max-width: 100%; }
+
+  .rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+  .room-btn { border: 0; background: var(--ink); color: #fff; border-radius: 12px; min-height: 64px; padding: 8px; font-weight: 800; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .room-btn small { display: block; font-size: 11px; font-weight: 600; letter-spacing: .04em; color: #b9c3cf; text-transform: uppercase; }
+  .room-btn.target { background: var(--go); }
+  .room-btn.target small { color: #d3f5e2; }
+  .room-btn:active { transform: translateY(1px); }
+
+  .confirm { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; background: #e2f4ea; border: 1px solid #a6dcbc; border-radius: 12px; padding: 8px 8px 8px 14px; }
+  .confirm span { font-weight: 700; }
+
+  .tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .tool { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 9px 4px; font-weight: 600; font-size: 14px; }
+  .tool[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .edit-card { border-color: var(--accent); }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 11px 14px; font-weight: 600; font-size: 15px; flex: 1 1 auto; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.go { background: var(--go); border-color: var(--go); color: #fff; }
+  .btn.ghost { background: transparent; }
+  .btn.small { flex: 0 0 auto; padding: 9px 12px; }
+  .btn:disabled { opacity: .45; }
+  .btn:focus-visible, .tool:focus-visible, .tabs button:focus-visible, .stop-btn:focus-visible, .room-btn:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
+
+  .joy-card { align-items: center; }
+  .pad { position: relative; width: min(78vw, 320px); aspect-ratio: 1; border-radius: 50%; background:
+      radial-gradient(circle, transparent 0 32%, #e4e9ef 32% 33%, transparent 33%),
+      linear-gradient(var(--line), var(--line)) center / 2px 100% no-repeat,
+      linear-gradient(var(--line), var(--line)) center / 100% 2px no-repeat,
+      #f5f7f9;
+    border: 2px solid var(--line); touch-action: none; user-select: none; -webkit-user-select: none; }
+  .knob { position: absolute; left: 50%; top: 50%; width: 28%; aspect-ratio: 1; margin: -14% 0 0 -14%; border-radius: 50%; background: var(--ink); box-shadow: 0 4px 10px rgba(0,0,0,.25); transition: transform .12s; pointer-events: none; }
+  .pad.active .knob { transition: none; background: var(--accent); }
+  .pad .lbl { position: absolute; font-size: 12px; font-weight: 700; color: var(--muted); pointer-events: none; }
+  .readout { font-family: var(--mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .field { display: grid; grid-template-columns: 1fr 8em; gap: 10px; align-items: center; }
+  .field.stack { grid-template-columns: 1fr; gap: 6px; }
+  .field label { font-size: 14px; }
+  .field input, .field select { font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; width: 100%; min-width: 0; }
+  .toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; max-width: calc(100% - 32px); z-index: 10; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 20px; background: #fde68a; color: #6b4e00; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="status" aria-live="polite">
+      <div class="status-line"><span class="dot" id="dot"></span><span id="msg">Подключение…</span></div>
+      <div class="pose" id="pose">x — y — курс —</div>
+    </div>
+    <button class="stop-btn" id="stop">СТОП</button>
+  </div>
+
+  <div class="speed">
+    <label for="speed">Скорость</label>
+    <input type="range" id="speed" min="10" max="100" step="5" value="40">
+    <output id="speedOut">40%</output>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="map">Кабинеты</button>
+    <button role="tab" aria-selected="false" data-tab="joy">Джойстик</button>
+    <button role="tab" aria-selected="false" data-tab="set">Настройки</button>
+  </div>
+
+  <!-- ROOMS + MAP -->
+  <section class="panel" id="tab-map">
+    <div class="map-wrap" id="mapWrap"><canvas id="map"></canvas></div>
+
+    <div class="confirm" id="confirm" hidden>
+      <span id="confirmText">Ехать в кабинет?</span>
+      <button class="btn go small" id="confirmGo">Поехать</button>
+      <button class="btn ghost small" id="confirmNo">Отмена</button>
+    </div>
+
+    <div id="viewControls" class="panel">
+      <div class="rooms" id="rooms"></div>
+      <p class="hint" id="roomsHint">Нажмите на кабинет на карте или кнопку с номером — робот сам найдёт дорогу по коридору с того места, где стоит.</p>
+      <div class="row">
+        <button class="btn" id="whereBtn">Указать, где робот</button>
+        <button class="btn" id="turn180">Развернуться 180°</button>
+      </div>
+      <div class="row"><button class="btn ghost" id="editBtn">Изменить карту</button></div>
+    </div>
+
+    <div class="card edit-card" id="editControls" hidden>
+      <h3>Изменение карты</h3>
+      <div class="tools" role="group" aria-label="Инструмент">
+        <button class="tool" data-tool="pose" aria-pressed="false">Где робот</button>
+        <button class="tool" data-tool="room" aria-pressed="true">Кабинет</button>
+        <button class="tool" data-tool="node" aria-pressed="false">Коридор</button>
+        <button class="tool" data-tool="marker" aria-pressed="false">Стикер</button>
+        <button class="tool" data-tool="erase" aria-pressed="false">Удалить</button>
+      </div>
+      <p class="hint" id="toolHint"></p>
+      <div class="row">
+        <button class="btn" id="newLine" hidden>Начать новую линию</button>
+        <button class="btn primary" id="editDone">Готово</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- JOYSTICK -->
+  <section class="panel" id="tab-joy" hidden>
+    <div class="card joy-card">
+      <div class="pad" id="pad">
+        <span class="lbl" style="top:8px;left:50%;transform:translateX(-50%)">ВПЕРЁД</span>
+        <span class="lbl" style="bottom:8px;left:50%;transform:translateX(-50%)">НАЗАД</span>
+        <span class="lbl" style="left:10px;top:50%;transform:translateY(-50%)">ЛЕВО</span>
+        <span class="lbl" style="right:10px;top:50%;transform:translateY(-50%)">ПРАВО</span>
+        <div class="knob" id="knob"></div>
+      </div>
+      <div class="readout" id="joyOut">левая 0% · правая 0%</div>
+      <p class="hint">Держите палец на круге: вверх — вперёд, в сторону — поворот. Отпустили — робот остановился. Место на карте продолжает отслеживаться, так что потом можно сразу выбрать кабинет.</p>
+    </div>
+    <div class="row"><button class="btn" id="turn180b">Развернуться 180°</button></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="panel" id="tab-set" hidden>
+    <div class="card">
+      <h3>Картинка карты</h3>
+      <p class="hint">Сфотографируйте нарисованную карту строго сверху и загрузите. Укажите её настоящую ширину — так робот поймёт масштаб.</p>
+      <div class="field stack"><label for="mapFile">Картинка</label><input type="file" id="mapFile" accept="image/*"></div>
+      <div class="field"><label for="mapWidth">Ширина карты, см</label><input type="number" id="mapWidth" min="20" max="5000" step="1" value="300"></div>
+      <div class="row"><button class="btn primary" id="saveMap">Сохранить карту</button></div>
+    </div>
+
+    <div class="card">
+      <h3>Калибровка расстояния</h3>
+      <p class="hint">1. Поставьте робота на пол и нажмите «Проехать 3 оборота». 2. Измерьте рулеткой, сколько он проехал. 3. Впишите и сохраните.</p>
+      <div class="row"><button class="btn" id="testDrive">Проехать 3 оборота</button></div>
+      <div class="field"><label for="measured">Проехал, см</label><input type="number" id="measured" min="1" step="0.5" inputmode="decimal"></div>
+      <div class="field"><label for="cmPerRot">см на 1 оборот мотора</label><input type="number" id="cmPerRot" step="0.1" inputmode="decimal"></div>
+      <div class="row"><button class="btn primary" id="saveCalib">Сохранить калибровку</button></div>
+    </div>
+
+    <div class="card">
+      <h3>Поведение</h3>
+      <div class="field stack"><label for="gyroSign">Гироскоп</label>
+        <select id="gyroSign"><option value="1">Обычно</option><option value="-1">Наоборот</option></select></div>
+      <p class="hint">Если на карте стрелка робота поворачивает в другую сторону, чем настоящий робот, выберите «Наоборот».</p>
+      <div class="field stack"><label for="touchAction">Кнопка на порту 2</label>
+        <select id="touchAction"><option value="turn180">Стоп и разворот 180°</option><option value="stop">Только стоп</option></select></div>
+      <div class="field"><label for="obstacleCm">Стоп перед препятствием, см</label><input type="number" id="obstacleCm" min="5" max="100"></div>
+      <div class="field"><label for="turnSpeed">Скорость поворота, %</label><input type="number" id="turnSpeed" min="5" max="100"></div>
+      <div class="field"><label for="offsetCm">Датчик цвета впереди центра, см</label><input type="number" id="offsetCm" min="0" max="40" step="0.5"></div>
+      <div class="row"><button class="btn primary" id="saveSettings">Сохранить</button></div>
+    </div>
+
+    <div class="card" id="simCard" hidden>
+      <h3>Симулятор <span class="badge">тест без робота</span></h3>
+      <p class="hint">Сейчас программа работает без EV3. Можно проверить, как робот ждёт перед препятствием.</p>
+      <div class="row"><button class="btn" id="simObstacle">Препятствие на 3 секунды</button></div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var each = function (sel, fn) { Array.prototype.forEach.call(document.querySelectorAll(sel), fn); };
+
+  // ---------- state ----------
+  var robot = null;
+  var mapData = { image: '', width_cm: 300, markers: [], rooms: [], nodes: [], edges: [] };
+  var mapImg = null;
+  var editing = false;
+  var tool = 'go';          // go | pose | room | node | marker | erase
+  var selNode = null;       // corridor point the next line starts from
+  var posePreview = null;
+  var pendingRoom = null;   // room waiting for "Поехать"
+  var lastOk = 0;
+  var joyActive = false, speedTouched = false;
+
+  // ---------- network ----------
+  function api(path, body, timeout) {
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, timeout || 3000) : null;
+    var opts = body === undefined ? { cache: 'no-store' } :
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+    if (ctrl) opts.signal = ctrl.signal;
+    return fetch(path, opts).then(function (r) {
+      if (timer) clearTimeout(timer);
+      return r.json().then(function (j) {
+        if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+        return j;
+      });
+    });
+  }
+  function toast(text) {
+    var t = $('toast');
+    t.textContent = text; t.hidden = false;
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { t.hidden = true; }, 2800);
+  }
+  function setOnline(v) {
+    $('dot').className = 'dot ' + (v ? 'on' : 'off');
+    if (!v) $('msg').textContent = 'Нет связи с роботом';
+  }
+
+  var MODE_RU = { idle: 'Стоит', path: 'Едет', joystick: 'Джойстик', turn: 'Поворот', distance: 'Тест' };
+  var lastTarget = null;
+  function applyState(s) {
+    robot = s; lastOk = Date.now(); setOnline(true);
+    $('msg').textContent = (s.paused ? 'Пауза: ' : '') + (s.msg || MODE_RU[s.mode] || s.mode);
+    $('pose').textContent = 'x ' + s.x.toFixed(0) + ' см · y ' + s.y.toFixed(0) + ' см · курс ' + s.heading.toFixed(0) + '°' +
+      (s.us_cm < 250 ? ' · до препятствия ' + s.us_cm.toFixed(0) + ' см' : '');
+    if (!speedTouched && document.activeElement !== $('speed')) {
+      $('speed').value = s.speed; $('speedOut').textContent = s.speed + '%';
+    }
+    $('simCard').hidden = !s.sim;
+    if (s.target !== lastTarget) { lastTarget = s.target; renderRooms(); }
+    draw();
+  }
+  function poll() {
+    if (joyActive) { setTimeout(poll, 300); return; }
+    api('/api/state', undefined, 2500).then(applyState).catch(function () {
+      if (Date.now() - lastOk > 2500) setOnline(false);
+    }).then(function () { setTimeout(poll, 300); });
+  }
+  function loadMap() {
+    return api('/api/map').then(function (m) {
+      ['markers', 'rooms', 'nodes', 'edges'].forEach(function (k) { m[k] = m[k] || []; });
+      mapData = m;
+      $('mapWidth').value = m.width_cm;
+      renderRooms();
+      if (m.image) {
+        var img = new Image();
+        img.onload = function () { mapImg = img; resize(); };
+        img.src = m.image;
+      } else { mapImg = null; resize(); }
+    }).catch(function () { resize(); });
+  }
+  function saveMapParts(keys) {
+    var body = {};
+    keys.forEach(function (k) { body[k] = mapData[k]; });
+    return api('/api/map', body).catch(function (e) { toast('Не сохранено: ' + e.message); });
+  }
+
+  // ---------- tabs ----------
+  each('.tabs button', function (b) {
+    b.addEventListener('click', function () {
+      each('.tabs button', function (x) { x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
+      ['map', 'joy', 'set'].forEach(function (t) { $('tab-' + t).hidden = t !== b.dataset.tab; });
+      if (b.dataset.tab === 'map') resize();
+      if (b.dataset.tab === 'set') loadSettings();
+    });
+  });
+
+  // ---------- stop / speed / turn ----------
+  $('stop').addEventListener('click', function () {
+    hideConfirm();
+    api('/api/stop', {}).then(applyState).catch(function () { toast('Нет связи — нажмите кнопку на роботе'); });
+  });
+  var speedTimer = null;
+  $('speed').addEventListener('input', function () {
+    speedTouched = true;
+    $('speedOut').textContent = this.value + '%';
+    clearTimeout(speedTimer);
+    var v = +this.value;
+    speedTimer = setTimeout(function () {
+      api('/api/speed', { speed: v }).then(function (s) { speedTouched = false; applyState(s); }).catch(function () { speedTouched = false; });
+    }, 200);
+  });
+  function turn180() { api('/api/turn', { degrees: 180 }).then(applyState).catch(function (e) { toast(e.message); }); }
+  $('turn180').addEventListener('click', turn180);
+  $('turn180b').addEventListener('click', turn180);
+
+  // ---------- rooms ----------
+  function sortedRooms() {
+    return mapData.rooms.slice().sort(function (a, b) {
+      return String(a.name).localeCompare(String(b.name), 'ru', { numeric: true });
+    });
+  }
+  function renderRooms() {
+    var box = $('rooms');
+    box.innerHTML = '';
+    sortedRooms().forEach(function (r) {
+      var b = document.createElement('button');
+      b.className = 'room-btn' + (robot && robot.target === r.name ? ' target' : '');
+      var small = document.createElement('small');
+      small.textContent = robot && robot.target === r.name ? 'еду' : 'кабинет';
+      b.appendChild(small);
+      b.appendChild(document.createTextNode(r.name));
+      b.addEventListener('click', function () { goRoom(r); });
+      box.appendChild(b);
+    });
+    $('roomsHint').textContent = mapData.rooms.length ?
+      'Нажмите на кабинет на карте или кнопку с номером — робот сам найдёт дорогу по коридору с того места, где стоит.' :
+      'Кабинетов пока нет. Нажмите «Изменить карту», отметьте кабинеты и линии коридора.';
+  }
+  function goRoom(r) {
+    hideConfirm();
+    api('/api/goto', { room: r.id }).then(function (s) { applyState(s); toast('Еду в кабинет ' + r.name); })
+      .catch(function (e) { toast('Не поехал: ' + e.message); });
+  }
+  function showConfirm(r) {
+    pendingRoom = r;
+    $('confirmText').textContent = 'Ехать в кабинет ' + r.name + '?';
+    $('confirm').hidden = false;
+    draw();
+  }
+  function hideConfirm() { pendingRoom = null; $('confirm').hidden = true; draw(); }
+  $('confirmGo').addEventListener('click', function () { if (pendingRoom) goRoom(pendingRoom); });
+  $('confirmNo').addEventListener('click', hideConfirm);
+
+  // ---------- editing ----------
+  var HINTS = {
+    pose: 'Коснитесь места, где стоит робот, и не отпуская проведите пальцем туда, куда он смотрит.',
+    room: 'Коснитесь двери кабинета и впишите номер. Касание по кабинету — переименовать.',
+    node: 'Ставьте точки вдоль середины коридора: каждая новая точка соединяется линией с предыдущей. Чтобы сделать развилку, коснитесь уже поставленной точки и продолжайте от неё. Касание двух точек подряд соединяет их или убирает линию.',
+    marker: 'Коснитесь места, где на полу жёлтый стикер. Проезжая по нему, робот уточняет, где находится.',
+    erase: 'Коснитесь кабинета, точки коридора или стикера, чтобы удалить.'
+  };
+  function setTool(t) {
+    tool = t;
+    each('.tool', function (x) { x.setAttribute('aria-pressed', x.dataset.tool === t ? 'true' : 'false'); });
+    $('toolHint').textContent = HINTS[t] || '';
+    $('newLine').hidden = t !== 'node';
+    if (t !== 'node') selNode = null;
+    draw();
+  }
+  each('.tool', function (b) { b.addEventListener('click', function () { setTool(b.dataset.tool); }); });
+  function setEditing(on, startTool) {
+    editing = on;
+    $('editControls').hidden = !on;
+    $('viewControls').hidden = on;
+    hideConfirm();
+    if (on) setTool(startTool || 'room'); else { tool = 'go'; selNode = null; draw(); }
+  }
+  $('editBtn').addEventListener('click', function () { setEditing(true, 'room'); });
+  $('editDone').addEventListener('click', function () { setEditing(false); });
+  $('newLine').addEventListener('click', function () { selNode = null; draw(); toast('Следующая точка начнёт новую линию'); });
+  var poseOnce = false;
+  $('whereBtn').addEventListener('click', function () {
+    poseOnce = true; tool = 'pose'; hideConfirm();
+    toast('Коснитесь робота на карте и проведите пальцем туда, куда он смотрит');
+  });
+
+  function newId(prefix) { return prefix + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36); }
+  function nearest(list, p, maxPx) {
+    var best = null, bd = maxPx / scale;
+    list.forEach(function (it, i) {
+      var x = Array.isArray(it) ? it[0] : it.x, y = Array.isArray(it) ? it[1] : it.y;
+      var d = Math.hypot(x - p[0], y - p[1]);
+      if (d <= bd) { bd = d; best = i; }
+    });
+    return best;
+  }
+  function round1(v) { return Math.round(v * 10) / 10; }
+  function hasEdge(a, b) {
+    return mapData.edges.findIndex(function (e) { return (e[0] === a && e[1] === b) || (e[0] === b && e[1] === a); });
+  }
+
+  // ---------- map canvas ----------
+  var canvas = $('map'), ctx = canvas.getContext('2d');
+  var scale = 1;
+  function mapSize() {
+    var w = +mapData.width_cm || 300;
+    var h = mapImg ? w * mapImg.naturalHeight / mapImg.naturalWidth : w * 2 / 3;
+    return { w: w, h: h };
+  }
+  function resize() {
+    var wrap = $('mapWrap');
+    if (wrap.offsetParent === null) return;
+    var sz = mapSize();
+    var availW = wrap.clientWidth - 12;
+    var availH = Math.max(240, window.innerHeight * 0.55);
+    scale = Math.min(availW / sz.w, availH / sz.h);
+    var cssW = Math.floor(sz.w * scale), cssH = Math.floor(sz.h * scale);
+    var dpr = window.devicePixelRatio || 1;
+    canvas.style.width = cssW + 'px'; canvas.style.height = cssH + 'px';
+    canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+  window.addEventListener('resize', resize);
+  function P(x, y) { return [x * scale, y * scale]; }
+  function line(pts, color, width, dash) {
+    if (pts.length < 2) return;
+    ctx.save();
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    if (dash) ctx.setLineDash(dash);
+    ctx.beginPath();
+    pts.forEach(function (p, i) { var q = P(p[0], p[1]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+    ctx.stroke(); ctx.restore();
+  }
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+  }
+  function drawRobot(x, y, heading, ghost) {
+    var r = Math.max(11, 9 * scale), c = P(x, y);
+    ctx.save();
+    ctx.translate(c[0], c[1]); ctx.rotate(heading * Math.PI / 180);
+    ctx.globalAlpha = ghost ? 0.5 : 1;
+    ctx.fillStyle = '#18212d'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+    roundRect(-r * 0.8, -r, r * 1.6, r * 2, r * 0.35); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#34d17a';
+    ctx.beginPath(); ctx.moveTo(0, -r * 0.85); ctx.lineTo(r * 0.5, -r * 0.1); ctx.lineTo(-r * 0.5, -r * 0.1); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  function drawRoom(r) {
+    var c = P(r.x, r.y);
+    var isTarget = robot && robot.target === r.name;
+    var isPending = pendingRoom && pendingRoom.id === r.id;
+    ctx.save();
+    ctx.font = '700 13px ' + getComputedStyle(document.body).fontFamily;
+    var w = Math.max(30, ctx.measureText(r.name).width + 14), h = 22;
+    var fill = isTarget || isPending ? '#138a4b' : '#18212d';
+    // pin dot at the door
+    ctx.fillStyle = fill; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(c[0], c[1], 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // label above it
+    roundRect(c[0] - w / 2, c[1] - h - 9, w, h, 6); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(c[0] - 5, c[1] - 10); ctx.lineTo(c[0] + 5, c[1] - 10); ctx.lineTo(c[0], c[1] - 5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(r.name, c[0], c[1] - 9 - h / 2 + 0.5);
+    ctx.restore();
+  }
+  function draw() {
+    var sz = mapSize(), W = sz.w * scale, H = sz.h * scale;
+    ctx.clearRect(0, 0, W, H);
+    if (mapImg) ctx.drawImage(mapImg, 0, 0, W, H);
+    else {
+      ctx.fillStyle = '#f7f9fb'; ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = '#dfe5ec'; ctx.lineWidth = 1;
+      for (var gx = 0; gx <= sz.w; gx += 50) { ctx.beginPath(); ctx.moveTo(gx * scale, 0); ctx.lineTo(gx * scale, H); ctx.stroke(); }
+      for (var gy = 0; gy <= sz.h; gy += 50) { ctx.beginPath(); ctx.moveTo(0, gy * scale); ctx.lineTo(W, gy * scale); ctx.stroke(); }
+      ctx.fillStyle = '#8a94a3'; ctx.font = '12px ' + getComputedStyle(document.body).fontFamily;
+      ctx.fillText('Сетка 50 см · загрузите карту в «Настройках»', 8, H - 8);
+    }
+    // corridor lines and points: strong while editing, quiet otherwise
+    var byId = {};
+    mapData.nodes.forEach(function (n) { byId[n.id] = n; });
+    var cw = editing ? 5 : 3, cc = editing ? 'rgba(14,116,144,.55)' : 'rgba(93,104,119,.35)';
+    mapData.edges.forEach(function (e) {
+      var a = byId[e[0]], b = byId[e[1]];
+      if (a && b) line([[a.x, a.y], [b.x, b.y]], cc, cw);
+    });
+    if (editing) {
+      mapData.nodes.forEach(function (n) {
+        var c = P(n.x, n.y);
+        ctx.fillStyle = n.id === selNode ? '#0e7490' : '#ffffff';
+        ctx.strokeStyle = '#0e7490'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(c[0], c[1], n.id === selNode ? 8 : 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      });
+    }
+    mapData.markers.forEach(function (m) {
+      var c = P(m[0], m[1]), s = Math.max(9, 5 * scale);
+      ctx.fillStyle = '#f2c200'; ctx.strokeStyle = '#6b5400'; ctx.lineWidth = 1.5;
+      ctx.fillRect(c[0] - s / 2, c[1] - s / 2, s, s); ctx.strokeRect(c[0] - s / 2, c[1] - s / 2, s, s);
+    });
+    if (robot) {
+      if (robot.trail && robot.trail.length > 1) line(robot.trail, 'rgba(24,33,45,.25)', 3);
+      if (robot.path && robot.path.length) line([[robot.x, robot.y]].concat(robot.path), '#138a4b', 4, [9, 6]);
+    }
+    mapData.rooms.forEach(drawRoom);
+    if (robot) drawRobot(robot.x, robot.y, robot.heading, !!posePreview);
+    if (posePreview) drawRobot(posePreview.x, posePreview.y, posePreview.heading, false);
+  }
+  function toCm(ev) {
+    var r = canvas.getBoundingClientRect();
+    return [(ev.clientX - r.left) / scale, (ev.clientY - r.top) / scale];
+  }
+
+  // ---------- map touches ----------
+  var downPt = null;
+  canvas.addEventListener('pointerdown', function (ev) {
+    ev.preventDefault();
+    canvas.setPointerCapture(ev.pointerId);
+    downPt = toCm(ev);
+    if (tool === 'pose') { posePreview = { x: downPt[0], y: downPt[1], heading: robot ? robot.heading : 0 }; draw(); }
+  });
+  canvas.addEventListener('pointermove', function (ev) {
+    if (!downPt || tool !== 'pose' || !posePreview) return;
+    var p = toCm(ev), dx = p[0] - posePreview.x, dy = p[1] - posePreview.y;
+    if (Math.hypot(dx, dy) > 4) { posePreview.heading = Math.atan2(dx, -dy) * 180 / Math.PI; draw(); }
+  });
+  canvas.addEventListener('pointercancel', function () { downPt = null; posePreview = null; draw(); });
+  canvas.addEventListener('pointerup', function (ev) {
+    if (!downPt) return;
+    var p = toCm(ev); downPt = null;
+    if (tool === 'go') {
+      var hit = nearest(mapData.rooms, p, 26);
+      if (hit === null) {
+        // also accept taps on the room label, which sits above the dot
+        hit = nearest(mapData.rooms, [p[0], p[1] + 20 / scale], 22);
+      }
+      if (hit !== null) showConfirm(mapData.rooms[hit]); else hideConfirm();
+      return;
+    }
+    if (tool === 'pose' && posePreview) {
+      var pp = posePreview; posePreview = null;
+      api('/api/pose', { x: round1(pp.x), y: round1(pp.y), heading: Math.round(pp.heading) })
+        .then(function (s) { applyState(s); toast('Место робота задано'); })
+        .catch(function (e) { toast(e.message); });
+      if (poseOnce) { poseOnce = false; tool = editing ? 'pose' : 'go'; }
+      return;
+    }
+    if (tool === 'room') {
+      var ri = nearest(mapData.rooms, p, 22);
+      if (ri !== null) {
+        var nn = window.prompt('Новый номер кабинета', mapData.rooms[ri].name);
+        if (nn && nn.trim()) mapData.rooms[ri].name = nn.trim();
+      } else {
+        var name = window.prompt('Номер кабинета (например, 301)');
+        if (!name || !name.trim()) return;
+        mapData.rooms.push({ id: newId('r'), name: name.trim(), x: round1(p[0]), y: round1(p[1]) });
+      }
+      renderRooms(); draw(); saveMapParts(['rooms']);
+      return;
+    }
+    if (tool === 'node') {
+      var ni = nearest(mapData.nodes, p, 20);
+      if (ni !== null) {
+        var id = mapData.nodes[ni].id;
+        if (selNode && selNode !== id) {
+          var k = hasEdge(selNode, id);
+          if (k >= 0) mapData.edges.splice(k, 1); else mapData.edges.push([selNode, id]);
+          saveMapParts(['edges']);
+        }
+        selNode = id;
+      } else {
+        var n = { id: newId('n'), x: round1(p[0]), y: round1(p[1]) };
+        mapData.nodes.push(n);
+        if (selNode) mapData.edges.push([selNode, n.id]);
+        selNode = n.id;
+        saveMapParts(['nodes', 'edges']);
+      }
+      draw();
+      return;
+    }
+    if (tool === 'marker') {
+      var mi = nearest(mapData.markers, p, 16);
+      if (mi !== null) mapData.markers.splice(mi, 1); else mapData.markers.push([round1(p[0]), round1(p[1])]);
+      draw(); saveMapParts(['markers']);
+      return;
+    }
+    if (tool === 'erase') {
+      var r2 = nearest(mapData.rooms, p, 22);
+      if (r2 !== null) { mapData.rooms.splice(r2, 1); renderRooms(); draw(); saveMapParts(['rooms']); return; }
+      var n2 = nearest(mapData.nodes, p, 20);
+      if (n2 !== null) {
+        var gone = mapData.nodes[n2].id;
+        mapData.nodes.splice(n2, 1);
+        mapData.edges = mapData.edges.filter(function (e) { return e[0] !== gone && e[1] !== gone; });
+        if (selNode === gone) selNode = null;
+        draw(); saveMapParts(['nodes', 'edges']); return;
+      }
+      var m2 = nearest(mapData.markers, p, 16);
+      if (m2 !== null) { mapData.markers.splice(m2, 1); draw(); saveMapParts(['markers']); }
+    }
+  });
+
+  // ---------- joystick ----------
+  var pad = $('pad'), knob = $('knob');
+  var joyVec = [0, 0], joyBusy = false, joyTimer = null;
+  function setKnob(nx, ny) {
+    var R = pad.clientWidth / 2 * 0.62;
+    knob.style.transform = 'translate(' + (nx * R) + 'px,' + (-ny * R) + 'px)';
+  }
+  function joyFrom(ev) {
+    var r = pad.getBoundingClientRect();
+    var cx = r.left + r.width / 2, cy = r.top + r.height / 2, R = r.width / 2 * 0.62;
+    var dx = (ev.clientX - cx) / R, dy = -(ev.clientY - cy) / R;
+    var m = Math.hypot(dx, dy);
+    if (m > 1) { dx /= m; dy /= m; }
+    if (Math.abs(dx) < 0.08) dx = 0;
+    if (Math.abs(dy) < 0.08) dy = 0;
+    joyVec = [dx, dy]; setKnob(dx, dy);
+    var sp = robot ? robot.speed : +$('speed').value;
+    var l = dy + dx, rr = dy - dx, mx = Math.max(1, Math.abs(l), Math.abs(rr));
+    $('joyOut').textContent = 'левая ' + Math.round(l / mx * sp) + '% · правая ' + Math.round(rr / mx * sp) + '%';
+  }
+  function joySend() {
+    if (joyBusy) return;
+    joyBusy = true;
+    api('/api/joystick', { x: joyVec[0], y: joyVec[1] }, 1500).then(applyState).catch(function () {})
+      .then(function () { joyBusy = false; });
+  }
+  pad.addEventListener('pointerdown', function (ev) {
+    ev.preventDefault(); pad.setPointerCapture(ev.pointerId);
+    joyActive = true; pad.classList.add('active'); joyFrom(ev); joySend();
+    clearInterval(joyTimer); joyTimer = setInterval(joySend, 100);
+  });
+  pad.addEventListener('pointermove', function (ev) { if (joyActive) joyFrom(ev); });
+  function joyEnd() {
+    if (!joyActive) return;
+    joyActive = false; pad.classList.remove('active'); clearInterval(joyTimer);
+    joyVec = [0, 0]; setKnob(0, 0); $('joyOut').textContent = 'левая 0% · правая 0%';
+    joyBusy = false; joySend();
+  }
+  pad.addEventListener('pointerup', joyEnd);
+  pad.addEventListener('pointercancel', joyEnd);
+
+  // ---------- settings ----------
+  function loadSettings() {
+    api('/api/settings').then(function (s) {
+      $('cmPerRot').value = s.cm_per_rot;
+      $('gyroSign').value = String(s.gyro_sign > 0 ? 1 : -1);
+      $('touchAction').value = s.touch_action;
+      $('obstacleCm').value = s.obstacle_cm;
+      $('turnSpeed').value = s.turn_speed;
+      $('offsetCm').value = s.sensor_offset_cm;
+    }).catch(function () {});
+  }
+  $('testDrive').addEventListener('click', function () {
+    api('/api/testdrive', { rotations: 3 }).then(applyState).then(function () { toast('Едет 3 оборота — потом измерьте'); })
+      .catch(function (e) { toast(e.message); });
+  });
+  $('measured').addEventListener('input', function () {
+    var v = parseFloat(this.value);
+    if (v > 0) $('cmPerRot').value = (v / 3).toFixed(2);
+  });
+  $('saveCalib').addEventListener('click', function () {
+    var v = parseFloat($('cmPerRot').value);
+    if (!(v > 0)) { toast('Впишите число'); return; }
+    api('/api/settings', { cm_per_rot: v }).then(function () { toast('Калибровка сохранена'); }).catch(function (e) { toast(e.message); });
+  });
+  $('saveSettings').addEventListener('click', function () {
+    api('/api/settings', {
+      gyro_sign: +$('gyroSign').value, touch_action: $('touchAction').value,
+      obstacle_cm: +$('obstacleCm').value, clear_cm: +$('obstacleCm').value + 3,
+      turn_speed: +$('turnSpeed').value, sensor_offset_cm: +$('offsetCm').value
+    }).then(function () { toast('Сохранено'); }).catch(function (e) { toast(e.message); });
+  });
+  var pendingImage = null;
+  $('mapFile').addEventListener('change', function () {
+    var f = this.files && this.files[0];
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var k = Math.min(1, 1400 / Math.max(img.width, img.height));
+        var c = document.createElement('canvas');
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        pendingImage = c.toDataURL('image/jpeg', 0.85);
+        toast('Картинка готова — нажмите «Сохранить карту»');
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(f);
+  });
+  $('saveMap').addEventListener('click', function () {
+    var body = { width_cm: Math.max(20, +$('mapWidth').value || 300) };
+    if (pendingImage) body.image = pendingImage;
+    api('/api/map', body, 20000).then(function () { pendingImage = null; toast('Карта сохранена на роботе'); return loadMap(); })
+      .catch(function (e) { toast('Не сохранено: ' + e.message); });
+  });
+  $('simObstacle').addEventListener('click', function () { api('/api/sim_obstacle', { seconds: 3 }).catch(function () {}); });
+
+  // ---------- start ----------
+  loadMap();
+  poll();
+})();
+</script>
+</body>
+</html>
