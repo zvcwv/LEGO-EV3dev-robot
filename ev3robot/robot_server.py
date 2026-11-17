@@ -79,6 +79,30 @@ DEFAULT_MAP = {
 }
 MAP_KEYS = ('image', 'width_cm', 'markers', 'rooms', 'nodes', 'edges')
 
+# Status messages. The phone page translates them by key (English, Korean,
+# Russian); the English text here is the fallback and what the EV3 prints.
+MESSAGES = {
+    'ready': 'Ready',
+    'pose_set': 'Robot position set',
+    'stopped': 'Stopped',
+    'going_room': 'Going to room {room}',
+    'following': 'Following the route',
+    'joystick': 'Joystick',
+    'turning': 'Turning',
+    'test_drive': 'Test: {n} rotations',
+    'error': 'Error: {text}',
+    'touch_stop': 'Button: stop',
+    'touch_turn': 'Button: turning 180°',
+    'sticker_unknown': 'Yellow sticker (none on the map nearby)',
+    'sticker_snap': 'Sticker: position corrected ({cm} cm)',
+    'obstacle': 'Obstacle - waiting',
+    'resuming': 'Moving on',
+    'turned': 'Turned around',
+    'test_done': 'Test finished - measure the distance',
+    'arrived': 'Arrived',
+    'arrived_room': 'Arrived at room {room}',
+}
+
 
 class RouteError(Exception):
     pass
@@ -387,7 +411,7 @@ class Robot(object):
         self.clear_since = None
         self.obstacle = False
         self.us_cm = 255.0
-        self.msg = 'Готов'
+        self.say('ready')
         self.trail = []
         self.target = ''
         self.running = True
@@ -400,6 +424,12 @@ class Robot(object):
         self._heading_ref = self.heading
 
     # ----- helpers -----
+    def say(self, key, **args):
+        """Set the status message shown on the phone."""
+        self.msg_key = key
+        self.msg_args = args
+        self.msg = MESSAGES.get(key, key).format(**args)
+
     def has_gyro(self):
         return self._gyro_ref is not None
 
@@ -410,15 +440,15 @@ class Robot(object):
             self._heading_ref = self.heading
             self._gyro_ref = self.hw.gyro_angle()
             self.trail = []
-            self.msg = 'Положение робота задано'
+            self.say('pose_set')
 
-    def stop(self, msg='Остановлен'):
+    def stop(self, key='stopped'):
         with self.lock:
             self.mode = 'idle'
             self.path = []
             self.paused = False
             self.hw.stop()
-            self.msg = msg
+            self.say(key)
 
     def go_to_room(self, room_id):
         with self.lock:
@@ -427,12 +457,12 @@ class Robot(object):
                 if str(r.get('id')) == str(room_id) or str(r.get('name')) == str(room_id):
                     room = r
             if room is None:
-                raise ValueError('нет такого кабинета')
+                raise ValueError('no such room')
             pts = plan_route((self.x, self.y), (float(room['x']), float(room['y'])),
                              self.map.get('nodes', []), self.map.get('edges', []))
             self.set_path(pts)
             self.target = room.get('name', '')
-            self.msg = 'Еду в кабинет {}'.format(self.target)
+            self.say('going_room', room=self.target)
 
     def set_path(self, points, append=False):
         pts = [[float(p[0]), float(p[1])] for p in points]
@@ -446,7 +476,7 @@ class Robot(object):
                 self.phase = 'turn'
                 self.seg_start = [self.x, self.y]
                 self.paused = False
-            self.msg = 'Еду по маршруту'
+            self.say('following')
 
     def set_joystick(self, jx, jy):
         with self.lock:
@@ -457,14 +487,14 @@ class Robot(object):
             self.joy = (clamp(float(jx), -1, 1), clamp(float(jy), -1, 1))
             self.joy_time = time.time()
             self.mode = 'joystick'
-            self.msg = 'Джойстик'
+            self.say('joystick')
 
     def turn_by(self, degrees):
         with self.lock:
             self.path = []
             self.turn_target = wrap180(self.heading + degrees)
             self.mode = 'turn'
-            self.msg = 'Разворот'
+            self.say('turning')
 
     def drive_distance_test(self, rotations):
         with self.lock:
@@ -474,7 +504,7 @@ class Robot(object):
             self.dist_target = rotations * 360.0
             self.turn_target = self.heading
             self.mode = 'distance'
-            self.msg = 'Тест: {} оборота'.format(rotations)
+            self.say('test_drive', n=rotations)
 
     def state(self):
         with self.lock:
@@ -485,7 +515,8 @@ class Robot(object):
                 'path': [[round(p[0], 1), round(p[1], 1)] for p in self.path],
                 'speed': self.cfg['speed'],
                 'obstacle': self.obstacle, 'us_cm': round(self.us_cm, 1),
-                'msg': self.msg, 'gyro': self.has_gyro(),
+                'msg': self.msg, 'msg_key': self.msg_key, 'msg_args': self.msg_args,
+                'gyro': self.has_gyro(),
                 'sim': self.hw.simulated,
                 'trail': self.trail[-200:],
                 'target': self.target if self.mode == 'path' else '',
@@ -501,7 +532,7 @@ class Robot(object):
                     self._step()
             except Exception as e:
                 self.hw.stop()
-                self.msg = 'Ошибка: {}'.format(e)
+                self.say('error', text=str(e))
                 self.mode = 'idle'
                 print('control error:', e)
             time.sleep(max(0.0, LOOP_DT - (time.time() - t0)))
@@ -533,12 +564,12 @@ class Robot(object):
         pressed = self.hw.touch_pressed()
         if pressed and not self._touch_was:
             if self.cfg.get('touch_action') == 'stop':
-                self.stop('Кнопка: стоп')
+                self.stop('touch_stop')
             else:
                 self.path = []
                 self.turn_target = wrap180(self.heading + 180)
                 self.mode = 'turn'
-                self.msg = 'Кнопка: разворот 180°'
+                self.say('touch_turn')
             self.hw.beep()
         self._touch_was = pressed
 
@@ -560,11 +591,11 @@ class Robot(object):
             if d <= best_d:
                 best, best_d = m, d
         if best is None:
-            self.msg = 'Жёлтый стикер (нет на карте рядом)'
+            self.say('sticker_unknown')
             return
         self.x = best[0] - off * math.sin(h)
         self.y = best[1] + off * math.cos(h)
-        self.msg = 'Стикер: положение уточнено ({:.0f} см)'.format(best_d)
+        self.say('sticker_snap', cm=int(round(best_d)))
         self.hw.beep()
 
     def _turn_toward(self, target_heading):
@@ -582,7 +613,7 @@ class Robot(object):
         """Pause while something is in front. Returns True while paused."""
         if self.obstacle:
             if not self.paused:
-                self.msg = 'Препятствие — жду'
+                self.say('obstacle')
             self.paused = True
             self.clear_since = None
             self.hw.drive(0, 0)
@@ -597,7 +628,7 @@ class Robot(object):
                 self.hw.drive(0, 0)
                 return True
             self.paused = False
-            self.msg = 'Еду дальше'
+            self.say('resuming')
         return False
 
     def _step(self):
@@ -608,7 +639,7 @@ class Robot(object):
             if time.time() - self.joy_time > JOY_TIMEOUT:
                 self.mode = 'idle'
                 self.hw.drive(0, 0)
-                self.msg = 'Готов'
+                self.say('ready')
                 return
             jx, jy = self.joy
             if self.obstacle and jy > 0:
@@ -621,7 +652,7 @@ class Robot(object):
         elif self.mode == 'turn':
             if self._turn_toward(self.turn_target):
                 self.mode = 'idle'
-                self.msg = 'Развернулся'
+                self.say('turned')
 
         elif self.mode == 'distance':
             l, r = self.hw.wheel_degrees()
@@ -631,7 +662,7 @@ class Robot(object):
             if abs(done) >= self.dist_target:
                 self.hw.drive(0, 0)
                 self.mode = 'idle'
-                self.msg = 'Тест окончен — измерьте расстояние'
+                self.say('test_done')
                 return
             err = wrap180(self.turn_target - self.heading)
             sp = self.cfg['speed']
@@ -661,7 +692,10 @@ class Robot(object):
         if not self.path:
             self.mode = 'idle'
             self.hw.drive(0, 0)
-            self.msg = 'Приехал' + (' в кабинет {}'.format(self.target) if self.target else '')
+            if self.target:
+                self.say('arrived_room', room=self.target)
+            else:
+                self.say('arrived')
             self.hw.beep()
             return
 
@@ -763,12 +797,15 @@ class Handler(BaseHTTPRequestHandler):
             elif path == '/api/goto':
                 try:
                     r.go_to_room(data.get('room'))
+                except ValueError:
+                    return self._send(400, {'error': 'No such room', 'code': 'no_room'})
                 except RouteError:
-                    return self._send(400, {'error': 'Точки коридора не соединены линиями'})
+                    return self._send(400, {'error': 'Corridor points are not connected by lines',
+                                            'code': 'not_connected'})
             elif path == '/api/path':
                 pts = data.get('points') or []
                 if not pts:
-                    return self._send(400, {'error': 'empty route'})
+                    return self._send(400, {'error': 'empty route', 'code': 'empty_route'})
                 r.set_path(pts, bool(data.get('append')))
             elif path == '/api/stop':
                 r.stop()
