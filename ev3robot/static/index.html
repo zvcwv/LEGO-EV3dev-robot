@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#18212d">
-<title>EV3 Пульт</title>
+<title>EV3 Remote</title>
 <style>
   :root {
     --bg: #eceff3;
@@ -15,7 +15,7 @@
     --accent: #0e7490;
     --go: #138a4b;
     --stop: #d92d20;
-    --font: -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial, sans-serif;
+    --font: -apple-system, "Segoe UI", Roboto, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Noto Sans", Arial, sans-serif;
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     color-scheme: light;
   }
@@ -23,7 +23,13 @@
   html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; }
   body { padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
   button { font: inherit; color: inherit; }
-  .app { max-width: 720px; margin: 0 auto; padding-inline: 12px; padding-block: 10px 24px; display: flex; flex-direction: column; gap: 10px; }
+  .app { max-width: 720px; margin: 0 auto; padding-inline: 12px; padding-block: 8px 24px; display: flex; flex-direction: column; gap: 10px; }
+
+  .langbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .brand { font-weight: 800; font-size: 15px; letter-spacing: .02em; color: var(--muted); }
+  .lang { display: flex; background: #dde2e8; border-radius: 9px; padding: 3px; gap: 3px; }
+  .lang button { border: 0; background: transparent; border-radius: 7px; padding: 5px 10px; font-size: 13px; font-weight: 700; color: var(--muted); }
+  .lang button[aria-pressed=true] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
 
   .top { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: stretch; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 4px; }
   .status { background: var(--ink); color: #fff; border-radius: 12px; padding: 8px 12px; display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; }
@@ -48,7 +54,7 @@
   .panel { display: flex; flex-direction: column; gap: 10px; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
   .card h3 { margin: 0; font-size: 15px; }
-  .hint { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.4; }
+  .hint { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.45; }
 
   .map-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 6px; display: flex; justify-content: center; }
   canvas#map { display: block; touch-action: none; border-radius: 8px; max-width: 100%; }
@@ -75,7 +81,7 @@
   .btn.ghost { background: transparent; }
   .btn.small { flex: 0 0 auto; padding: 9px 12px; }
   .btn:disabled { opacity: .45; }
-  .btn:focus-visible, .tool:focus-visible, .tabs button:focus-visible, .stop-btn:focus-visible, .room-btn:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
+  .btn:focus-visible, .tool:focus-visible, .tabs button:focus-visible, .stop-btn:focus-visible, .room-btn:focus-visible, .lang button:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
 
   .joy-card { align-items: center; }
   .pad { position: relative; width: min(78vw, 320px); aspect-ratio: 1; border-radius: 50%; background:
@@ -95,29 +101,39 @@
   .field input, .field select { font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; width: 100%; min-width: 0; }
   .toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; max-width: calc(100% - 32px); z-index: 10; }
   .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 20px; background: #fde68a; color: #6b4e00; }
+  html[lang=ko] body { word-break: keep-all; overflow-wrap: anywhere; }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <div class="app">
+  <div class="langbar">
+    <span class="brand" data-i18n="title">EV3 Remote</span>
+    <div class="lang" role="group" aria-label="Language">
+      <button data-lang="en" aria-pressed="true">EN</button>
+      <button data-lang="ko" aria-pressed="false">한국어</button>
+      <button data-lang="ru" aria-pressed="false">RU</button>
+    </div>
+  </div>
+
   <div class="top">
     <div class="status" aria-live="polite">
-      <div class="status-line"><span class="dot" id="dot"></span><span id="msg">Подключение…</span></div>
-      <div class="pose" id="pose">x — y — курс —</div>
+      <div class="status-line"><span class="dot" id="dot"></span><span id="msg" data-i18n="connecting">Connecting…</span></div>
+      <div class="pose" id="pose">x — y — —</div>
     </div>
-    <button class="stop-btn" id="stop">СТОП</button>
+    <button class="stop-btn" id="stop" data-i18n="stop">STOP</button>
   </div>
 
   <div class="speed">
-    <label for="speed">Скорость</label>
+    <label for="speed" data-i18n="speed">Speed</label>
     <input type="range" id="speed" min="10" max="100" step="5" value="40">
     <output id="speedOut">40%</output>
   </div>
 
   <div class="tabs" role="tablist">
-    <button role="tab" aria-selected="true" data-tab="map">Кабинеты</button>
-    <button role="tab" aria-selected="false" data-tab="joy">Джойстик</button>
-    <button role="tab" aria-selected="false" data-tab="set">Настройки</button>
+    <button role="tab" aria-selected="true" data-tab="map" data-i18n="tab_rooms">Rooms</button>
+    <button role="tab" aria-selected="false" data-tab="joy" data-i18n="tab_joy">Joystick</button>
+    <button role="tab" aria-selected="false" data-tab="set" data-i18n="tab_set">Settings</button>
   </div>
 
   <!-- ROOMS + MAP -->
@@ -125,34 +141,34 @@
     <div class="map-wrap" id="mapWrap"><canvas id="map"></canvas></div>
 
     <div class="confirm" id="confirm" hidden>
-      <span id="confirmText">Ехать в кабинет?</span>
-      <button class="btn go small" id="confirmGo">Поехать</button>
-      <button class="btn ghost small" id="confirmNo">Отмена</button>
+      <span id="confirmText"></span>
+      <button class="btn go small" id="confirmGo" data-i18n="go">Go</button>
+      <button class="btn ghost small" id="confirmNo" data-i18n="cancel">Cancel</button>
     </div>
 
     <div id="viewControls" class="panel">
       <div class="rooms" id="rooms"></div>
-      <p class="hint" id="roomsHint">Нажмите на кабинет на карте или кнопку с номером — робот сам найдёт дорогу по коридору с того места, где стоит.</p>
+      <p class="hint" id="roomsHint"></p>
       <div class="row">
-        <button class="btn" id="whereBtn">Указать, где робот</button>
-        <button class="btn" id="turn180">Развернуться 180°</button>
+        <button class="btn" id="whereBtn" data-i18n="where_btn">Set robot position</button>
+        <button class="btn" id="turn180" data-i18n="turn180">Turn 180°</button>
       </div>
-      <div class="row"><button class="btn ghost" id="editBtn">Изменить карту</button></div>
+      <div class="row"><button class="btn ghost" id="editBtn" data-i18n="edit_btn">Edit map</button></div>
     </div>
 
     <div class="card edit-card" id="editControls" hidden>
-      <h3>Изменение карты</h3>
-      <div class="tools" role="group" aria-label="Инструмент">
-        <button class="tool" data-tool="pose" aria-pressed="false">Где робот</button>
-        <button class="tool" data-tool="room" aria-pressed="true">Кабинет</button>
-        <button class="tool" data-tool="node" aria-pressed="false">Коридор</button>
-        <button class="tool" data-tool="marker" aria-pressed="false">Стикер</button>
-        <button class="tool" data-tool="erase" aria-pressed="false">Удалить</button>
+      <h3 data-i18n="edit_title">Editing the map</h3>
+      <div class="tools" role="group">
+        <button class="tool" data-tool="pose" aria-pressed="false" data-i18n="tool_pose">Robot</button>
+        <button class="tool" data-tool="room" aria-pressed="true" data-i18n="tool_room">Room</button>
+        <button class="tool" data-tool="node" aria-pressed="false" data-i18n="tool_node">Corridor</button>
+        <button class="tool" data-tool="marker" aria-pressed="false" data-i18n="tool_marker">Sticker</button>
+        <button class="tool" data-tool="erase" aria-pressed="false" data-i18n="tool_erase">Delete</button>
       </div>
       <p class="hint" id="toolHint"></p>
       <div class="row">
-        <button class="btn" id="newLine" hidden>Начать новую линию</button>
-        <button class="btn primary" id="editDone">Готово</button>
+        <button class="btn" id="newLine" hidden data-i18n="new_line">Start a new line</button>
+        <button class="btn primary" id="editDone" data-i18n="done">Done</button>
       </div>
     </div>
   </section>
@@ -161,54 +177,54 @@
   <section class="panel" id="tab-joy" hidden>
     <div class="card joy-card">
       <div class="pad" id="pad">
-        <span class="lbl" style="top:8px;left:50%;transform:translateX(-50%)">ВПЕРЁД</span>
-        <span class="lbl" style="bottom:8px;left:50%;transform:translateX(-50%)">НАЗАД</span>
-        <span class="lbl" style="left:10px;top:50%;transform:translateY(-50%)">ЛЕВО</span>
-        <span class="lbl" style="right:10px;top:50%;transform:translateY(-50%)">ПРАВО</span>
+        <span class="lbl" style="top:8px;left:50%;transform:translateX(-50%)" data-i18n="joy_fwd">FORWARD</span>
+        <span class="lbl" style="bottom:8px;left:50%;transform:translateX(-50%)" data-i18n="joy_back">BACK</span>
+        <span class="lbl" style="left:10px;top:50%;transform:translateY(-50%)" data-i18n="joy_left">LEFT</span>
+        <span class="lbl" style="right:10px;top:50%;transform:translateY(-50%)" data-i18n="joy_right">RIGHT</span>
         <div class="knob" id="knob"></div>
       </div>
-      <div class="readout" id="joyOut">левая 0% · правая 0%</div>
-      <p class="hint">Держите палец на круге: вверх — вперёд, в сторону — поворот. Отпустили — робот остановился. Место на карте продолжает отслеживаться, так что потом можно сразу выбрать кабинет.</p>
+      <div class="readout" id="joyOut"></div>
+      <p class="hint" data-i18n="joy_hint"></p>
     </div>
-    <div class="row"><button class="btn" id="turn180b">Развернуться 180°</button></div>
+    <div class="row"><button class="btn" id="turn180b" data-i18n="turn180">Turn 180°</button></div>
   </section>
 
   <!-- SETTINGS -->
   <section class="panel" id="tab-set" hidden>
     <div class="card">
-      <h3>Картинка карты</h3>
-      <p class="hint">Сфотографируйте нарисованную карту строго сверху и загрузите. Укажите её настоящую ширину — так робот поймёт масштаб.</p>
-      <div class="field stack"><label for="mapFile">Картинка</label><input type="file" id="mapFile" accept="image/*"></div>
-      <div class="field"><label for="mapWidth">Ширина карты, см</label><input type="number" id="mapWidth" min="20" max="5000" step="1" value="300"></div>
-      <div class="row"><button class="btn primary" id="saveMap">Сохранить карту</button></div>
+      <h3 data-i18n="set_map_title">Map picture</h3>
+      <p class="hint" data-i18n="set_map_hint"></p>
+      <div class="field stack"><label for="mapFile" data-i18n="map_file">Picture</label><input type="file" id="mapFile" accept="image/*"></div>
+      <div class="field"><label for="mapWidth" data-i18n="map_width">Map width, cm</label><input type="number" id="mapWidth" min="20" max="5000" step="1" value="300"></div>
+      <div class="row"><button class="btn primary" id="saveMap" data-i18n="save_map">Save map</button></div>
     </div>
 
     <div class="card">
-      <h3>Калибровка расстояния</h3>
-      <p class="hint">1. Поставьте робота на пол и нажмите «Проехать 3 оборота». 2. Измерьте рулеткой, сколько он проехал. 3. Впишите и сохраните.</p>
-      <div class="row"><button class="btn" id="testDrive">Проехать 3 оборота</button></div>
-      <div class="field"><label for="measured">Проехал, см</label><input type="number" id="measured" min="1" step="0.5" inputmode="decimal"></div>
-      <div class="field"><label for="cmPerRot">см на 1 оборот мотора</label><input type="number" id="cmPerRot" step="0.1" inputmode="decimal"></div>
-      <div class="row"><button class="btn primary" id="saveCalib">Сохранить калибровку</button></div>
+      <h3 data-i18n="calib_title">Distance calibration</h3>
+      <p class="hint" data-i18n="calib_hint"></p>
+      <div class="row"><button class="btn" id="testDrive" data-i18n="test_drive_btn">Drive 3 rotations</button></div>
+      <div class="field"><label for="measured" data-i18n="measured">Distance driven, cm</label><input type="number" id="measured" min="1" step="0.5" inputmode="decimal"></div>
+      <div class="field"><label for="cmPerRot" data-i18n="cm_per_rot">cm per motor rotation</label><input type="number" id="cmPerRot" step="0.1" inputmode="decimal"></div>
+      <div class="row"><button class="btn primary" id="saveCalib" data-i18n="save_calib">Save calibration</button></div>
     </div>
 
     <div class="card">
-      <h3>Поведение</h3>
-      <div class="field stack"><label for="gyroSign">Гироскоп</label>
-        <select id="gyroSign"><option value="1">Обычно</option><option value="-1">Наоборот</option></select></div>
-      <p class="hint">Если на карте стрелка робота поворачивает в другую сторону, чем настоящий робот, выберите «Наоборот».</p>
-      <div class="field stack"><label for="touchAction">Кнопка на порту 2</label>
-        <select id="touchAction"><option value="turn180">Стоп и разворот 180°</option><option value="stop">Только стоп</option></select></div>
-      <div class="field"><label for="obstacleCm">Стоп перед препятствием, см</label><input type="number" id="obstacleCm" min="5" max="100"></div>
-      <div class="field"><label for="turnSpeed">Скорость поворота, %</label><input type="number" id="turnSpeed" min="5" max="100"></div>
-      <div class="field"><label for="offsetCm">Датчик цвета впереди центра, см</label><input type="number" id="offsetCm" min="0" max="40" step="0.5"></div>
-      <div class="row"><button class="btn primary" id="saveSettings">Сохранить</button></div>
+      <h3 data-i18n="behaviour">Behaviour</h3>
+      <div class="field stack"><label for="gyroSign" data-i18n="gyro">Gyro</label>
+        <select id="gyroSign"><option value="1" data-i18n="gyro_normal">Normal</option><option value="-1" data-i18n="gyro_rev">Reversed</option></select></div>
+      <p class="hint" data-i18n="gyro_hint"></p>
+      <div class="field stack"><label for="touchAction" data-i18n="touch_label">Button on port 2</label>
+        <select id="touchAction"><option value="turn180" data-i18n="touch_turn_opt">Stop and turn 180°</option><option value="stop" data-i18n="touch_stop_opt">Stop only</option></select></div>
+      <div class="field"><label for="obstacleCm" data-i18n="obstacle_cm">Stop before obstacle, cm</label><input type="number" id="obstacleCm" min="5" max="100"></div>
+      <div class="field"><label for="turnSpeed" data-i18n="turn_speed">Turning speed, %</label><input type="number" id="turnSpeed" min="5" max="100"></div>
+      <div class="field"><label for="offsetCm" data-i18n="offset">Colour sensor ahead of centre, cm</label><input type="number" id="offsetCm" min="0" max="40" step="0.5"></div>
+      <div class="row"><button class="btn primary" id="saveSettings" data-i18n="save">Save</button></div>
     </div>
 
     <div class="card" id="simCard" hidden>
-      <h3>Симулятор <span class="badge">тест без робота</span></h3>
-      <p class="hint">Сейчас программа работает без EV3. Можно проверить, как робот ждёт перед препятствием.</p>
-      <div class="row"><button class="btn" id="simObstacle">Препятствие на 3 секунды</button></div>
+      <h3><span data-i18n="sim_title">Simulator</span> <span class="badge" data-i18n="sim_badge">test without robot</span></h3>
+      <p class="hint" data-i18n="sim_hint"></p>
+      <div class="row"><button class="btn" id="simObstacle" data-i18n="sim_btn">Obstacle for 3 seconds</button></div>
     </div>
   </section>
 </div>
@@ -220,19 +236,180 @@
   var $ = function (id) { return document.getElementById(id); };
   var each = function (sel, fn) { Array.prototype.forEach.call(document.querySelectorAll(sel), fn); };
 
+  // ---------- languages ----------
+  var I18N = {
+    en: {
+      title: 'EV3 Remote', connecting: 'Connecting…', offline: 'No connection to the robot', stop: 'STOP', speed: 'Speed',
+      tab_rooms: 'Rooms', tab_joy: 'Joystick', tab_set: 'Settings',
+      pose_line: 'x {x} cm · y {y} cm · heading {h}°', pose_obst: ' · obstacle {d} cm', paused: 'Paused: ',
+      confirm_q: 'Go to room {room}?', go: 'Go', cancel: 'Cancel', room_label: 'room', room_going: 'going',
+      rooms_hint: 'Tap a room on the map or a number button. The robot finds the way along the corridor from wherever it is.',
+      rooms_empty: 'No rooms yet. Tap “Edit map” and mark the rooms and corridor lines.',
+      where_btn: 'Set robot position', turn180: 'Turn 180°', edit_btn: 'Edit map', edit_title: 'Editing the map',
+      tool_pose: 'Robot', tool_room: 'Room', tool_node: 'Corridor', tool_marker: 'Sticker', tool_erase: 'Delete',
+      new_line: 'Start a new line', done: 'Done',
+      hint_pose: 'Touch where the robot stands and, without lifting your finger, drag toward where it faces.',
+      hint_room: 'Tap a room door and type its number. Tap an existing room to rename it.',
+      hint_node: 'Place points along the middle of the corridor: each new point joins the previous one with a line. To branch, tap an existing point and continue from it. Tapping two points in a row joins them or removes their line.',
+      hint_marker: 'Tap where a yellow sticker is on the floor. When the robot drives over it, it corrects its position.',
+      hint_erase: 'Tap a room, corridor point or sticker to delete it.',
+      t_newline: 'The next point starts a new line', t_where: 'Tap the robot on the map and drag toward where it faces',
+      t_going: 'Going to room {room}', t_not_going: 'Not started: {err}', t_pose: 'Robot position set',
+      t_no_conn_stop: 'No connection. Press the button on the robot.', t_not_saved: 'Not saved: {err}',
+      p_new_room: 'Room number (for example, 301)', p_rename: 'New room number',
+      grid_note: '50 cm grid · upload your map in Settings',
+      joy_fwd: 'FORWARD', joy_back: 'BACK', joy_left: 'LEFT', joy_right: 'RIGHT', joy_out: 'left {l}% · right {r}%',
+      joy_hint: 'Keep your finger on the circle: up drives forward, sideways turns. Let go and the robot stops. The map keeps tracking the position, so you can pick a room right after.',
+      set_map_title: 'Map picture', set_map_hint: 'Photograph your drawn map straight from above and upload it. Enter its real width so the robot knows the scale.',
+      map_file: 'Picture', map_width: 'Map width, cm', save_map: 'Save map',
+      calib_title: 'Distance calibration', calib_hint: '1. Put the robot on the floor and tap “Drive 3 rotations”. 2. Measure how far it went. 3. Enter the distance and save.',
+      test_drive_btn: 'Drive 3 rotations', measured: 'Distance driven, cm', cm_per_rot: 'cm per motor rotation', save_calib: 'Save calibration',
+      behaviour: 'Behaviour', gyro: 'Gyro', gyro_normal: 'Normal', gyro_rev: 'Reversed',
+      gyro_hint: 'If the robot arrow on the map turns the opposite way from the real robot, choose “Reversed”.',
+      touch_label: 'Button on port 2', touch_turn_opt: 'Stop and turn 180°', touch_stop_opt: 'Stop only',
+      obstacle_cm: 'Stop before an obstacle, cm', turn_speed: 'Turning speed, %', offset: 'Colour sensor ahead of the centre, cm', save: 'Save',
+      sim_title: 'Simulator', sim_badge: 'test without robot', sim_hint: 'The program is running without the EV3. You can check how the robot waits at an obstacle.', sim_btn: 'Obstacle for 3 seconds',
+      t_test: 'Driving 3 rotations. Measure when it stops.', t_number: 'Enter a number', t_calib: 'Calibration saved', t_saved: 'Saved',
+      t_picture: 'Picture ready. Tap “Save map”.', t_map_saved: 'Map saved on the robot',
+      e_not_connected: 'Corridor points are not connected by lines', e_no_room: 'No such room', e_empty_route: 'Empty route',
+      m_idle: 'Standing', m_path: 'Driving', m_joystick: 'Joystick', m_turn: 'Turning', m_distance: 'Test',
+      s_ready: 'Ready', s_pose_set: 'Robot position set', s_stopped: 'Stopped', s_going_room: 'Going to room {room}',
+      s_following: 'Following the route', s_joystick: 'Joystick', s_turning: 'Turning', s_test_drive: 'Test: {n} rotations',
+      s_error: 'Error: {text}', s_touch_stop: 'Button: stop', s_touch_turn: 'Button: turning 180°',
+      s_sticker_unknown: 'Yellow sticker (none on the map nearby)', s_sticker_snap: 'Sticker: position corrected ({cm} cm)',
+      s_obstacle: 'Obstacle, waiting', s_resuming: 'Moving on', s_turned: 'Turned around',
+      s_test_done: 'Test finished. Measure the distance.', s_arrived: 'Arrived', s_arrived_room: 'Arrived at room {room}'
+    },
+    ko: {
+      title: 'EV3 리모컨', connecting: '연결 중…', offline: '로봇과 연결되지 않음', stop: '정지', speed: '속도',
+      tab_rooms: '교실', tab_joy: '조이스틱', tab_set: '설정',
+      pose_line: 'x {x} cm · y {y} cm · 방향 {h}°', pose_obst: ' · 장애물까지 {d} cm', paused: '일시정지: ',
+      confirm_q: '{room}호로 갈까요?', go: '출발', cancel: '취소', room_label: '교실', room_going: '이동 중',
+      rooms_hint: '지도에서 교실이나 번호 버튼을 누르세요. 로봇이 지금 있는 곳에서 복도를 따라 길을 찾아갑니다.',
+      rooms_empty: '아직 교실이 없습니다. “지도 편집”을 눌러 교실과 복도 선을 표시하세요.',
+      where_btn: '로봇 위치 지정', turn180: '180° 회전', edit_btn: '지도 편집', edit_title: '지도 편집',
+      tool_pose: '로봇 위치', tool_room: '교실', tool_node: '복도', tool_marker: '스티커', tool_erase: '삭제',
+      new_line: '새 선 시작', done: '완료',
+      hint_pose: '로봇이 있는 곳을 누른 채로, 로봇이 바라보는 방향으로 손가락을 끌어 주세요.',
+      hint_room: '교실 문 위치를 누르고 번호를 입력하세요. 있는 교실을 누르면 이름을 바꿀 수 있습니다.',
+      hint_node: '복도 가운데를 따라 점을 찍으세요. 새 점은 이전 점과 선으로 이어집니다. 갈림길을 만들려면 이미 있는 점을 누르고 거기서 계속하세요. 두 점을 연달아 누르면 선이 생기거나 지워집니다.',
+      hint_marker: '바닥에 노란 스티커가 있는 곳을 누르세요. 로봇이 그 위를 지나가면 위치를 바로잡습니다.',
+      hint_erase: '삭제할 교실, 복도 점 또는 스티커를 누르세요.',
+      t_newline: '다음 점부터 새 선이 시작됩니다', t_where: '지도에서 로봇을 누르고 바라보는 방향으로 끌어 주세요',
+      t_going: '{room}호로 이동합니다', t_not_going: '출발하지 못함: {err}', t_pose: '로봇 위치를 지정했습니다',
+      t_no_conn_stop: '연결이 없습니다. 로봇의 버튼을 누르세요.', t_not_saved: '저장되지 않음: {err}',
+      p_new_room: '교실 번호 (예: 301)', p_rename: '새 교실 번호',
+      grid_note: '50 cm 격자 · 설정에서 지도를 올리세요',
+      joy_fwd: '앞', joy_back: '뒤', joy_left: '왼쪽', joy_right: '오른쪽', joy_out: '왼쪽 {l}% · 오른쪽 {r}%',
+      joy_hint: '원 위에 손가락을 대세요. 위로 밀면 전진, 옆으로 밀면 회전합니다. 손을 떼면 로봇이 멈춥니다. 위치는 계속 지도에 표시되므로 바로 교실을 고를 수 있습니다.',
+      set_map_title: '지도 그림', set_map_hint: '그린 지도를 바로 위에서 찍어 올리세요. 실제 폭을 입력해야 로봇이 축척을 알 수 있습니다.',
+      map_file: '그림', map_width: '지도 폭 (cm)', save_map: '지도 저장',
+      calib_title: '거리 보정', calib_hint: '1. 로봇을 바닥에 두고 “3바퀴 주행”을 누르세요. 2. 이동한 거리를 줄자로 재세요. 3. 거리를 입력하고 저장하세요.',
+      test_drive_btn: '3바퀴 주행', measured: '이동 거리 (cm)', cm_per_rot: '모터 1회전당 cm', save_calib: '보정 저장',
+      behaviour: '동작', gyro: '자이로', gyro_normal: '정상', gyro_rev: '반대',
+      gyro_hint: '지도 위 로봇 화살표가 실제 로봇과 반대로 돌면 “반대”를 고르세요.',
+      touch_label: '포트 2 버튼', touch_turn_opt: '정지 후 180° 회전', touch_stop_opt: '정지만',
+      obstacle_cm: '장애물 앞 정지 거리 (cm)', turn_speed: '회전 속도 (%)', offset: '컬러 센서와 중심 사이 거리 (cm)', save: '저장',
+      sim_title: '시뮬레이터', sim_badge: '로봇 없이 테스트', sim_hint: '지금 EV3 없이 실행 중입니다. 장애물 앞에서 로봇이 기다리는지 확인할 수 있습니다.', sim_btn: '3초간 장애물',
+      t_test: '3바퀴 주행 중입니다. 멈추면 거리를 재세요.', t_number: '숫자를 입력하세요', t_calib: '보정을 저장했습니다', t_saved: '저장했습니다',
+      t_picture: '그림이 준비되었습니다. “지도 저장”을 누르세요.', t_map_saved: '지도를 로봇에 저장했습니다',
+      e_not_connected: '복도 점들이 선으로 연결되어 있지 않습니다', e_no_room: '그런 교실이 없습니다', e_empty_route: '경로가 비어 있습니다',
+      m_idle: '대기', m_path: '이동 중', m_joystick: '조이스틱', m_turn: '회전 중', m_distance: '테스트',
+      s_ready: '준비됨', s_pose_set: '로봇 위치를 지정했습니다', s_stopped: '정지함', s_going_room: '{room}호로 이동 중',
+      s_following: '경로를 따라 이동 중', s_joystick: '조이스틱', s_turning: '회전 중', s_test_drive: '테스트: {n}바퀴',
+      s_error: '오류: {text}', s_touch_stop: '버튼: 정지', s_touch_turn: '버튼: 180° 회전',
+      s_sticker_unknown: '노란 스티커 (근처 지도에 없음)', s_sticker_snap: '스티커: 위치 보정 ({cm} cm)',
+      s_obstacle: '장애물, 기다리는 중', s_resuming: '다시 출발', s_turned: '회전 완료',
+      s_test_done: '테스트 끝. 거리를 재세요.', s_arrived: '도착', s_arrived_room: '{room}호 도착'
+    },
+    ru: {
+      title: 'EV3 Пульт', connecting: 'Подключение…', offline: 'Нет связи с роботом', stop: 'СТОП', speed: 'Скорость',
+      tab_rooms: 'Кабинеты', tab_joy: 'Джойстик', tab_set: 'Настройки',
+      pose_line: 'x {x} см · y {y} см · курс {h}°', pose_obst: ' · до препятствия {d} см', paused: 'Пауза: ',
+      confirm_q: 'Ехать в кабинет {room}?', go: 'Поехать', cancel: 'Отмена', room_label: 'кабинет', room_going: 'еду',
+      rooms_hint: 'Нажмите на кабинет на карте или кнопку с номером. Робот сам найдёт дорогу по коридору с того места, где стоит.',
+      rooms_empty: 'Кабинетов пока нет. Нажмите «Изменить карту», отметьте кабинеты и линии коридора.',
+      where_btn: 'Указать, где робот', turn180: 'Развернуться 180°', edit_btn: 'Изменить карту', edit_title: 'Изменение карты',
+      tool_pose: 'Где робот', tool_room: 'Кабинет', tool_node: 'Коридор', tool_marker: 'Стикер', tool_erase: 'Удалить',
+      new_line: 'Начать новую линию', done: 'Готово',
+      hint_pose: 'Коснитесь места, где стоит робот, и не отпуская проведите пальцем туда, куда он смотрит.',
+      hint_room: 'Коснитесь двери кабинета и впишите номер. Касание по кабинету — переименовать.',
+      hint_node: 'Ставьте точки вдоль середины коридора: каждая новая точка соединяется линией с предыдущей. Чтобы сделать развилку, коснитесь уже поставленной точки и продолжайте от неё. Касание двух точек подряд соединяет их или убирает линию.',
+      hint_marker: 'Коснитесь места, где на полу жёлтый стикер. Проезжая по нему, робот уточняет, где находится.',
+      hint_erase: 'Коснитесь кабинета, точки коридора или стикера, чтобы удалить.',
+      t_newline: 'Следующая точка начнёт новую линию', t_where: 'Коснитесь робота на карте и проведите пальцем туда, куда он смотрит',
+      t_going: 'Еду в кабинет {room}', t_not_going: 'Не поехал: {err}', t_pose: 'Место робота задано',
+      t_no_conn_stop: 'Нет связи. Нажмите кнопку на роботе.', t_not_saved: 'Не сохранено: {err}',
+      p_new_room: 'Номер кабинета (например, 301)', p_rename: 'Новый номер кабинета',
+      grid_note: 'Сетка 50 см · загрузите карту в «Настройках»',
+      joy_fwd: 'ВПЕРЁД', joy_back: 'НАЗАД', joy_left: 'ЛЕВО', joy_right: 'ПРАВО', joy_out: 'левая {l}% · правая {r}%',
+      joy_hint: 'Держите палец на круге: вверх — вперёд, в сторону — поворот. Отпустили — робот остановился. Место на карте продолжает отслеживаться, так что потом можно сразу выбрать кабинет.',
+      set_map_title: 'Картинка карты', set_map_hint: 'Сфотографируйте нарисованную карту строго сверху и загрузите. Укажите её настоящую ширину — так робот поймёт масштаб.',
+      map_file: 'Картинка', map_width: 'Ширина карты, см', save_map: 'Сохранить карту',
+      calib_title: 'Калибровка расстояния', calib_hint: '1. Поставьте робота на пол и нажмите «Проехать 3 оборота». 2. Измерьте рулеткой, сколько он проехал. 3. Впишите и сохраните.',
+      test_drive_btn: 'Проехать 3 оборота', measured: 'Проехал, см', cm_per_rot: 'см на 1 оборот мотора', save_calib: 'Сохранить калибровку',
+      behaviour: 'Поведение', gyro: 'Гироскоп', gyro_normal: 'Обычно', gyro_rev: 'Наоборот',
+      gyro_hint: 'Если на карте стрелка робота поворачивает в другую сторону, чем настоящий робот, выберите «Наоборот».',
+      touch_label: 'Кнопка на порту 2', touch_turn_opt: 'Стоп и разворот 180°', touch_stop_opt: 'Только стоп',
+      obstacle_cm: 'Стоп перед препятствием, см', turn_speed: 'Скорость поворота, %', offset: 'Датчик цвета впереди центра, см', save: 'Сохранить',
+      sim_title: 'Симулятор', sim_badge: 'тест без робота', sim_hint: 'Сейчас программа работает без EV3. Можно проверить, как робот ждёт перед препятствием.', sim_btn: 'Препятствие на 3 секунды',
+      t_test: 'Едет 3 оборота. Когда остановится, измерьте.', t_number: 'Впишите число', t_calib: 'Калибровка сохранена', t_saved: 'Сохранено',
+      t_picture: 'Картинка готова. Нажмите «Сохранить карту».', t_map_saved: 'Карта сохранена на роботе',
+      e_not_connected: 'Точки коридора не соединены линиями', e_no_room: 'Нет такого кабинета', e_empty_route: 'Пустой маршрут',
+      m_idle: 'Стоит', m_path: 'Едет', m_joystick: 'Джойстик', m_turn: 'Поворот', m_distance: 'Тест',
+      s_ready: 'Готов', s_pose_set: 'Положение робота задано', s_stopped: 'Остановлен', s_going_room: 'Еду в кабинет {room}',
+      s_following: 'Еду по маршруту', s_joystick: 'Джойстик', s_turning: 'Разворот', s_test_drive: 'Тест: {n} оборота',
+      s_error: 'Ошибка: {text}', s_touch_stop: 'Кнопка: стоп', s_touch_turn: 'Кнопка: разворот 180°',
+      s_sticker_unknown: 'Жёлтый стикер (нет на карте рядом)', s_sticker_snap: 'Стикер: положение уточнено ({cm} см)',
+      s_obstacle: 'Препятствие — жду', s_resuming: 'Еду дальше', s_turned: 'Развернулся',
+      s_test_done: 'Тест окончен — измерьте расстояние', s_arrived: 'Приехал', s_arrived_room: 'Приехал в кабинет {room}'
+    }
+  };
+  function pickLang() {
+    try { var saved = localStorage.getItem('ev3lang'); if (saved && I18N[saved]) return saved; } catch (e) {}
+    var nav = (navigator.language || 'en').slice(0, 2).toLowerCase();
+    return I18N[nav] ? nav : 'en';
+  }
+  var lang = pickLang();
+  function t(key, args) {
+    var s = (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
+    if (args) Object.keys(args).forEach(function (k) { s = s.split('{' + k + '}').join(String(args[k])); });
+    return s;
+  }
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.title = t('title');
+    each('[data-i18n]', function (el) { el.textContent = t(el.dataset.i18n); });
+    each('.lang button', function (b) { b.setAttribute('aria-pressed', b.dataset.lang === lang ? 'true' : 'false'); });
+    if (robot) applyState(robot); else if (!lastOk) $('msg').textContent = t('connecting');
+    renderRooms();
+    if (editing) $('toolHint').textContent = t('hint_' + tool);
+    if (pendingRoom) $('confirmText').textContent = t('confirm_q', { room: pendingRoom.name });
+    $('joyOut').textContent = t('joy_out', { l: 0, r: 0 });
+    draw();
+  }
+  each('.lang button', function (b) {
+    b.addEventListener('click', function () {
+      lang = b.dataset.lang;
+      try { localStorage.setItem('ev3lang', lang); } catch (e) {}
+      applyLang();
+    });
+  });
+
   // ---------- state ----------
   var robot = null;
   var mapData = { image: '', width_cm: 300, markers: [], rooms: [], nodes: [], edges: [] };
   var mapImg = null;
   var editing = false;
   var tool = 'go';          // go | pose | room | node | marker | erase
-  var selNode = null;       // corridor point the next line starts from
+  var selNode = null;
   var posePreview = null;
-  var pendingRoom = null;   // room waiting for "Поехать"
+  var pendingRoom = null;
   var lastOk = 0;
   var joyActive = false, speedTouched = false;
 
   // ---------- network ----------
+  var ERR_CODES = { not_connected: 'e_not_connected', no_room: 'e_no_room', empty_route: 'e_empty_route' };
   function api(path, body, timeout) {
     var ctrl = window.AbortController ? new AbortController() : null;
     var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, timeout || 3000) : null;
@@ -242,29 +419,33 @@
     return fetch(path, opts).then(function (r) {
       if (timer) clearTimeout(timer);
       return r.json().then(function (j) {
-        if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+        if (!r.ok) throw new Error(ERR_CODES[j.code] ? t(ERR_CODES[j.code]) : (j.error || ('HTTP ' + r.status)));
         return j;
       });
     });
   }
   function toast(text) {
-    var t = $('toast');
-    t.textContent = text; t.hidden = false;
+    var el = $('toast');
+    el.textContent = text; el.hidden = false;
     clearTimeout(toast._t);
-    toast._t = setTimeout(function () { t.hidden = true; }, 2800);
+    toast._t = setTimeout(function () { el.hidden = true; }, 2800);
   }
   function setOnline(v) {
     $('dot').className = 'dot ' + (v ? 'on' : 'off');
-    if (!v) $('msg').textContent = 'Нет связи с роботом';
+    if (!v) $('msg').textContent = t('offline');
   }
 
-  var MODE_RU = { idle: 'Стоит', path: 'Едет', joystick: 'Джойстик', turn: 'Поворот', distance: 'Тест' };
+  function statusText(s) {
+    var text = s.msg_key ? t('s_' + s.msg_key, s.msg_args || {}) : (s.msg || t('m_' + s.mode));
+    if (s.msg_key && text === 's_' + s.msg_key) text = s.msg;   // unknown key: use the robot's English text
+    return (s.paused ? t('paused') : '') + text;
+  }
   var lastTarget = null;
   function applyState(s) {
     robot = s; lastOk = Date.now(); setOnline(true);
-    $('msg').textContent = (s.paused ? 'Пауза: ' : '') + (s.msg || MODE_RU[s.mode] || s.mode);
-    $('pose').textContent = 'x ' + s.x.toFixed(0) + ' см · y ' + s.y.toFixed(0) + ' см · курс ' + s.heading.toFixed(0) + '°' +
-      (s.us_cm < 250 ? ' · до препятствия ' + s.us_cm.toFixed(0) + ' см' : '');
+    $('msg').textContent = statusText(s);
+    $('pose').textContent = t('pose_line', { x: s.x.toFixed(0), y: s.y.toFixed(0), h: s.heading.toFixed(0) }) +
+      (s.us_cm < 250 ? t('pose_obst', { d: s.us_cm.toFixed(0) }) : '');
     if (!speedTouched && document.activeElement !== $('speed')) {
       $('speed').value = s.speed; $('speedOut').textContent = s.speed + '%';
     }
@@ -294,14 +475,14 @@
   function saveMapParts(keys) {
     var body = {};
     keys.forEach(function (k) { body[k] = mapData[k]; });
-    return api('/api/map', body).catch(function (e) { toast('Не сохранено: ' + e.message); });
+    return api('/api/map', body).catch(function (e) { toast(t('t_not_saved', { err: e.message })); });
   }
 
   // ---------- tabs ----------
   each('.tabs button', function (b) {
     b.addEventListener('click', function () {
       each('.tabs button', function (x) { x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
-      ['map', 'joy', 'set'].forEach(function (t) { $('tab-' + t).hidden = t !== b.dataset.tab; });
+      ['map', 'joy', 'set'].forEach(function (k) { $('tab-' + k).hidden = k !== b.dataset.tab; });
       if (b.dataset.tab === 'map') resize();
       if (b.dataset.tab === 'set') loadSettings();
     });
@@ -310,7 +491,7 @@
   // ---------- stop / speed / turn ----------
   $('stop').addEventListener('click', function () {
     hideConfirm();
-    api('/api/stop', {}).then(applyState).catch(function () { toast('Нет связи — нажмите кнопку на роботе'); });
+    api('/api/stop', {}).then(applyState).catch(function () { toast(t('t_no_conn_stop')); });
   });
   var speedTimer = null;
   $('speed').addEventListener('input', function () {
@@ -329,34 +510,33 @@
   // ---------- rooms ----------
   function sortedRooms() {
     return mapData.rooms.slice().sort(function (a, b) {
-      return String(a.name).localeCompare(String(b.name), 'ru', { numeric: true });
+      return String(a.name).localeCompare(String(b.name), undefined, { numeric: true });
     });
   }
   function renderRooms() {
     var box = $('rooms');
     box.innerHTML = '';
     sortedRooms().forEach(function (r) {
+      var going = robot && robot.target === r.name;
       var b = document.createElement('button');
-      b.className = 'room-btn' + (robot && robot.target === r.name ? ' target' : '');
+      b.className = 'room-btn' + (going ? ' target' : '');
       var small = document.createElement('small');
-      small.textContent = robot && robot.target === r.name ? 'еду' : 'кабинет';
+      small.textContent = going ? t('room_going') : t('room_label');
       b.appendChild(small);
       b.appendChild(document.createTextNode(r.name));
       b.addEventListener('click', function () { goRoom(r); });
       box.appendChild(b);
     });
-    $('roomsHint').textContent = mapData.rooms.length ?
-      'Нажмите на кабинет на карте или кнопку с номером — робот сам найдёт дорогу по коридору с того места, где стоит.' :
-      'Кабинетов пока нет. Нажмите «Изменить карту», отметьте кабинеты и линии коридора.';
+    $('roomsHint').textContent = mapData.rooms.length ? t('rooms_hint') : t('rooms_empty');
   }
   function goRoom(r) {
     hideConfirm();
-    api('/api/goto', { room: r.id }).then(function (s) { applyState(s); toast('Еду в кабинет ' + r.name); })
-      .catch(function (e) { toast('Не поехал: ' + e.message); });
+    api('/api/goto', { room: r.id }).then(function (s) { applyState(s); toast(t('t_going', { room: r.name })); })
+      .catch(function (e) { toast(t('t_not_going', { err: e.message })); });
   }
   function showConfirm(r) {
     pendingRoom = r;
-    $('confirmText').textContent = 'Ехать в кабинет ' + r.name + '?';
+    $('confirmText').textContent = t('confirm_q', { room: r.name });
     $('confirm').hidden = false;
     draw();
   }
@@ -365,19 +545,12 @@
   $('confirmNo').addEventListener('click', hideConfirm);
 
   // ---------- editing ----------
-  var HINTS = {
-    pose: 'Коснитесь места, где стоит робот, и не отпуская проведите пальцем туда, куда он смотрит.',
-    room: 'Коснитесь двери кабинета и впишите номер. Касание по кабинету — переименовать.',
-    node: 'Ставьте точки вдоль середины коридора: каждая новая точка соединяется линией с предыдущей. Чтобы сделать развилку, коснитесь уже поставленной точки и продолжайте от неё. Касание двух точек подряд соединяет их или убирает линию.',
-    marker: 'Коснитесь места, где на полу жёлтый стикер. Проезжая по нему, робот уточняет, где находится.',
-    erase: 'Коснитесь кабинета, точки коридора или стикера, чтобы удалить.'
-  };
-  function setTool(t) {
-    tool = t;
-    each('.tool', function (x) { x.setAttribute('aria-pressed', x.dataset.tool === t ? 'true' : 'false'); });
-    $('toolHint').textContent = HINTS[t] || '';
-    $('newLine').hidden = t !== 'node';
-    if (t !== 'node') selNode = null;
+  function setTool(k) {
+    tool = k;
+    each('.tool', function (x) { x.setAttribute('aria-pressed', x.dataset.tool === k ? 'true' : 'false'); });
+    $('toolHint').textContent = t('hint_' + k);
+    $('newLine').hidden = k !== 'node';
+    if (k !== 'node') selNode = null;
     draw();
   }
   each('.tool', function (b) { b.addEventListener('click', function () { setTool(b.dataset.tool); }); });
@@ -390,11 +563,11 @@
   }
   $('editBtn').addEventListener('click', function () { setEditing(true, 'room'); });
   $('editDone').addEventListener('click', function () { setEditing(false); });
-  $('newLine').addEventListener('click', function () { selNode = null; draw(); toast('Следующая точка начнёт новую линию'); });
+  $('newLine').addEventListener('click', function () { selNode = null; draw(); toast(t('t_newline')); });
   var poseOnce = false;
   $('whereBtn').addEventListener('click', function () {
     poseOnce = true; tool = 'pose'; hideConfirm();
-    toast('Коснитесь робота на карте и проведите пальцем туда, куда он смотрит');
+    toast(t('t_where'));
   });
 
   function newId(prefix) { return prefix + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36); }
@@ -462,16 +635,12 @@
   }
   function drawRoom(r) {
     var c = P(r.x, r.y);
-    var isTarget = robot && robot.target === r.name;
-    var isPending = pendingRoom && pendingRoom.id === r.id;
+    var hot = (robot && robot.target === r.name) || (pendingRoom && pendingRoom.id === r.id);
     ctx.save();
     ctx.font = '700 13px ' + getComputedStyle(document.body).fontFamily;
     var w = Math.max(30, ctx.measureText(r.name).width + 14), h = 22;
-    var fill = isTarget || isPending ? '#138a4b' : '#18212d';
-    // pin dot at the door
-    ctx.fillStyle = fill; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+    ctx.fillStyle = hot ? '#138a4b' : '#18212d'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(c[0], c[1], 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    // label above it
     roundRect(c[0] - w / 2, c[1] - h - 9, w, h, 6); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(c[0] - 5, c[1] - 10); ctx.lineTo(c[0] + 5, c[1] - 10); ctx.lineTo(c[0], c[1] - 5); ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -488,9 +657,8 @@
       for (var gx = 0; gx <= sz.w; gx += 50) { ctx.beginPath(); ctx.moveTo(gx * scale, 0); ctx.lineTo(gx * scale, H); ctx.stroke(); }
       for (var gy = 0; gy <= sz.h; gy += 50) { ctx.beginPath(); ctx.moveTo(0, gy * scale); ctx.lineTo(W, gy * scale); ctx.stroke(); }
       ctx.fillStyle = '#8a94a3'; ctx.font = '12px ' + getComputedStyle(document.body).fontFamily;
-      ctx.fillText('Сетка 50 см · загрузите карту в «Настройках»', 8, H - 8);
+      ctx.fillText(t('grid_note'), 8, H - 8);
     }
-    // corridor lines and points: strong while editing, quiet otherwise
     var byId = {};
     mapData.nodes.forEach(function (n) { byId[n.id] = n; });
     var cw = editing ? 5 : 3, cc = editing ? 'rgba(14,116,144,.55)' : 'rgba(93,104,119,.35)';
@@ -543,17 +711,14 @@
     var p = toCm(ev); downPt = null;
     if (tool === 'go') {
       var hit = nearest(mapData.rooms, p, 26);
-      if (hit === null) {
-        // also accept taps on the room label, which sits above the dot
-        hit = nearest(mapData.rooms, [p[0], p[1] + 20 / scale], 22);
-      }
+      if (hit === null) hit = nearest(mapData.rooms, [p[0], p[1] + 20 / scale], 22);  // tap on the label above the dot
       if (hit !== null) showConfirm(mapData.rooms[hit]); else hideConfirm();
       return;
     }
     if (tool === 'pose' && posePreview) {
       var pp = posePreview; posePreview = null;
       api('/api/pose', { x: round1(pp.x), y: round1(pp.y), heading: Math.round(pp.heading) })
-        .then(function (s) { applyState(s); toast('Место робота задано'); })
+        .then(function (s) { applyState(s); toast(t('t_pose')); })
         .catch(function (e) { toast(e.message); });
       if (poseOnce) { poseOnce = false; tool = editing ? 'pose' : 'go'; }
       return;
@@ -561,10 +726,10 @@
     if (tool === 'room') {
       var ri = nearest(mapData.rooms, p, 22);
       if (ri !== null) {
-        var nn = window.prompt('Новый номер кабинета', mapData.rooms[ri].name);
+        var nn = window.prompt(t('p_rename'), mapData.rooms[ri].name);
         if (nn && nn.trim()) mapData.rooms[ri].name = nn.trim();
       } else {
-        var name = window.prompt('Номер кабинета (например, 301)');
+        var name = window.prompt(t('p_new_room'));
         if (!name || !name.trim()) return;
         mapData.rooms.push({ id: newId('r'), name: name.trim(), x: round1(p[0]), y: round1(p[1]) });
       }
@@ -631,7 +796,7 @@
     joyVec = [dx, dy]; setKnob(dx, dy);
     var sp = robot ? robot.speed : +$('speed').value;
     var l = dy + dx, rr = dy - dx, mx = Math.max(1, Math.abs(l), Math.abs(rr));
-    $('joyOut').textContent = 'левая ' + Math.round(l / mx * sp) + '% · правая ' + Math.round(rr / mx * sp) + '%';
+    $('joyOut').textContent = t('joy_out', { l: Math.round(l / mx * sp), r: Math.round(rr / mx * sp) });
   }
   function joySend() {
     if (joyBusy) return;
@@ -648,7 +813,7 @@
   function joyEnd() {
     if (!joyActive) return;
     joyActive = false; pad.classList.remove('active'); clearInterval(joyTimer);
-    joyVec = [0, 0]; setKnob(0, 0); $('joyOut').textContent = 'левая 0% · правая 0%';
+    joyVec = [0, 0]; setKnob(0, 0); $('joyOut').textContent = t('joy_out', { l: 0, r: 0 });
     joyBusy = false; joySend();
   }
   pad.addEventListener('pointerup', joyEnd);
@@ -666,7 +831,7 @@
     }).catch(function () {});
   }
   $('testDrive').addEventListener('click', function () {
-    api('/api/testdrive', { rotations: 3 }).then(applyState).then(function () { toast('Едет 3 оборота — потом измерьте'); })
+    api('/api/testdrive', { rotations: 3 }).then(applyState).then(function () { toast(t('t_test')); })
       .catch(function (e) { toast(e.message); });
   });
   $('measured').addEventListener('input', function () {
@@ -675,15 +840,15 @@
   });
   $('saveCalib').addEventListener('click', function () {
     var v = parseFloat($('cmPerRot').value);
-    if (!(v > 0)) { toast('Впишите число'); return; }
-    api('/api/settings', { cm_per_rot: v }).then(function () { toast('Калибровка сохранена'); }).catch(function (e) { toast(e.message); });
+    if (!(v > 0)) { toast(t('t_number')); return; }
+    api('/api/settings', { cm_per_rot: v }).then(function () { toast(t('t_calib')); }).catch(function (e) { toast(e.message); });
   });
   $('saveSettings').addEventListener('click', function () {
     api('/api/settings', {
       gyro_sign: +$('gyroSign').value, touch_action: $('touchAction').value,
       obstacle_cm: +$('obstacleCm').value, clear_cm: +$('obstacleCm').value + 3,
       turn_speed: +$('turnSpeed').value, sensor_offset_cm: +$('offsetCm').value
-    }).then(function () { toast('Сохранено'); }).catch(function (e) { toast(e.message); });
+    }).then(function () { toast(t('t_saved')); }).catch(function (e) { toast(e.message); });
   });
   var pendingImage = null;
   $('mapFile').addEventListener('change', function () {
@@ -698,7 +863,7 @@
         c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
         c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
         pendingImage = c.toDataURL('image/jpeg', 0.85);
-        toast('Картинка готова — нажмите «Сохранить карту»');
+        toast(t('t_picture'));
       };
       img.src = reader.result;
     };
@@ -707,12 +872,13 @@
   $('saveMap').addEventListener('click', function () {
     var body = { width_cm: Math.max(20, +$('mapWidth').value || 300) };
     if (pendingImage) body.image = pendingImage;
-    api('/api/map', body, 20000).then(function () { pendingImage = null; toast('Карта сохранена на роботе'); return loadMap(); })
-      .catch(function (e) { toast('Не сохранено: ' + e.message); });
+    api('/api/map', body, 20000).then(function () { pendingImage = null; toast(t('t_map_saved')); return loadMap(); })
+      .catch(function (e) { toast(t('t_not_saved', { err: e.message })); });
   });
   $('simObstacle').addEventListener('click', function () { api('/api/sim_obstacle', { seconds: 3 }).catch(function () {}); });
 
   // ---------- start ----------
+  applyLang();
   loadMap();
   poll();
 })();
